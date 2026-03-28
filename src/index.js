@@ -1,5 +1,5 @@
-// _worker.js — Cloudflare Pages Advanced Mode
-// Handles /api/* routes server-side, passes everything else to static assets
+// src/index.js — Cloudflare Worker with Assets binding
+// Handles /api/* routes server-side, falls through to static assets for everything else
 
 const HUNAR_API_KEY = "hunar_va_live_sk_nLOtbcN-jdKk4OPa7_prT7NAa0UWJ7TrSEHDWrDsy9-QNUDwlQ8hFQ";
 const HUNAR_BASE = "https://api.voice.hunar.ai/external/v1";
@@ -7,6 +7,17 @@ const HUNAR_BASE = "https://api.voice.hunar.ai/external/v1";
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    // ── OPTIONS preflight for /api/* ──
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
 
     // ── POST /api/calls — Create a call ──
     if (url.pathname === "/api/calls" && request.method === "POST") {
@@ -23,10 +34,7 @@ export default {
         const data = await resp.text();
         return new Response(data, {
           status: resp.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: { "Content-Type": "application/json" },
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), {
@@ -46,10 +54,7 @@ export default {
         const data = await resp.text();
         return new Response(data, {
           status: resp.status,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: { "Content-Type": "application/json" },
         });
       } catch (err) {
         return new Response(JSON.stringify({ error: err.message }), {
@@ -59,18 +64,7 @@ export default {
       }
     }
 
-    // ── OPTIONS preflight ──
-    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/")) {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
-        },
-      });
-    }
-
-    // ── Everything else → static assets ──
+    // ── Everything else → static assets (index.html etc.) ──
     return env.ASSETS.fetch(request);
   },
 };
