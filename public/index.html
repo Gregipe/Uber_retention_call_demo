@@ -113,6 +113,7 @@ function App(){
   const[triggerError,setTriggerError]=useState(null);
   const[triggering,setTriggering]=useState(null);
   const pollRef=useRef(null);
+  const loggedRef=useRef(false);
 
   useEffect(()=>{setMounted(true);},[]);
 
@@ -124,7 +125,14 @@ function App(){
       if(!text)return;
       const data=JSON.parse(text);
       setCallData(data);
-      if(TERMINAL.includes(normSt(data.status))){clearInterval(pollRef.current);pollRef.current=null;}
+      if(TERMINAL.includes(normSt(data.status))){
+        clearInterval(pollRef.current);pollRef.current=null;
+        if(!loggedRef.current){
+          loggedRef.current=true;
+          fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)})
+            .catch(e=>console.error("Sheet log error:",e));
+        }
+      }
     }catch(e){console.error("Poll error:",e);}
   },[]);
 
@@ -140,6 +148,7 @@ function App(){
     if(!user)return;
     setTriggering(agent.id);
     setTriggerError(null);
+    loggedRef.current=false;
     const payload={agent_id:agent.id,callee_name:user.firstName,mobile_number:fmtMobile(user.countryCode,user.mobile)};
     try{
       const res=await fetch("/api/calls",{
