@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Uber × Hunar.ai — Voice AI Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+    body { font-family: 'DM Sans', sans-serif; background: #000; color: #fff; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    @keyframes pulseRing { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+    @keyframes spinSlow { to { transform: rotate(360deg); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-up { animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+    .fade-in { animation: fadeIn 0.5s ease both; }
+    .slide-up { animation: slideUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+    .d1 { animation-delay: 0.08s; } .d2 { animation-delay: 0.16s; }
+    .d3 { animation-delay: 0.24s; } .d4 { animation-delay: 0.32s; }
+    input:focus, select:focus { border-color: #444 !important; outline: none; }
+    audio::-webkit-media-controls-panel { background: #1a1a1a; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script type="text/babel" data-type="module">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // ── CONFIG ──
+    const POLL_INTERVAL = 4000;
+    const AGENTS = [
+      { id: "0b7fed15-b1a3-4ec7-80e8-e1e3a528d577", lang: "Hindi", langNative: "हिन्दी", flag: "🇮🇳", color: "#276EF1", desc: "Engage drivers in fluent Hindi with culturally aware retention conversations." },
+      { id: "AGENT_ID_SPANISH", lang: "Spanish", langNative: "Español", flag: "🇪🇸", color: "#F6AE2D", desc: "Connect with Spanish-speaking drivers through natural, empathetic dialogue." },
+      { id: "AGENT_ID_TAMIL", lang: "Tamil", langNative: "தமிழ்", flag: "🇮🇳", color: "#06C167", desc: "Reach Tamil-speaking drivers with region-specific retention strategies." },
+      { id: "AGENT_ID_TELUGU", lang: "Telugu", langNative: "తెలుగు", flag: "🇮🇳", color: "#C117E0", desc: "Retain Telugu-speaking drivers with personalized voice outreach." },
+    ];
+    const COUNTRY_CODES = [
+      { code: "+91", country: "IN" }, { code: "+1", country: "US" }, { code: "+44", country: "UK" },
+      { code: "+34", country: "ES" }, { code: "+61", country: "AU" }, { code: "+971", country: "AE" },
+      { code: "+65", country: "SG" }, { code: "+81", country: "JP" },
+    ];
+    const STATUS_META = {
+      NOT_STARTED:   { label: "Not Started",   color: "#666",    icon: "⏳", step: 0 },
+      SCHEDULED:     { label: "Scheduled",     color: "#F6AE2D", icon: "📋", step: 1 },
+      INITIATED:     { label: "Initiated",     color: "#276EF1", icon: "📡", step: 2 },
+      RINGING:       { label: "Ringing",       color: "#276EF1", icon: "🔔", step: 3 },
+      IN_PROGRESS:   { label: "In Progress",   color: "#06C167", icon: "🗣️", step: 4 },
+      COMPLETED:     { label: "Completed",     color: "#06C167", icon: "✅", step: 5 },
+      NOT_CONNECTED: { label: "Not Connected", color: "#F6AE2D", icon: "📵", step: 5 },
+      CANCELLED:     { label: "Cancelled",     color: "#ff3b30", icon: "🚫", step: 5 },
+      FAILED:        { label: "Failed",        color: "#ff3b30", icon: "❌", step: 5 },
+    };
+    const PIPELINE = ["NOT_STARTED","SCHEDULED","INITIATED","RINGING","IN_PROGRESS","COMPLETED"];
+    const TERMINAL = ["COMPLETED","NOT_CONNECTED","CANCELLED","FAILED"];
+
+    function fmtMobile(cc, m) { const c = m.replace(/\D/g,""); return cc==="+91" ? c.slice(-10) : `${cc}${c}`; }
+    function fmtDur(s) { if(!s) return "—"; const mm=Math.floor(s/60), ss=Math.round(s%60); return mm>0?`${mm}m ${ss}s`:`${ss}s`; }
+    function dispNum(u) { if(!u) return ""; return u.countryCode==="+91" ? u.mobile.replace(/\D/g,"").slice(-10) : `${u.countryCode}${u.mobile.replace(/\D/g,"")}`; }
+
+    // ── Icons ──
+    const PhoneIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>;
+    const LogOutIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>;
+    const BackIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
+    const NavIcon = ({type}) => type==="about"
+      ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>;
+
+    // ── Pulse Ring ──
+    function PulseRing({ color, size=130, status }) {
+      const isTerm = TERMINAL.includes(status);
+      const isActive = status === "IN_PROGRESS";
+      const m = STATUS_META[status] || STATUS_META.NOT_STARTED;
+      return (
+        <div style={{ position:"relative", width:size, height:size, margin:"0 auto" }}>
+          {!isTerm && <>
+            <div style={{ position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${color}33`,animation:"pulseRing 2s ease-out infinite" }}/>
+            <div style={{ position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${color}22`,animation:"pulseRing 2s ease-out infinite 0.6s" }}/>
+            <div style={{ position:"absolute",inset:0,borderRadius:"50%",border:`2px solid ${color}11`,animation:"pulseRing 2s ease-out infinite 1.2s" }}/>
+          </>}
+          <div style={{
+            position:"absolute",inset:12,borderRadius:"50%",
+            background:`radial-gradient(circle at 40% 35%, ${color}22, ${color}08)`,
+            border:`2px solid ${color}${isTerm?"55":"44"}`,
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.3,transition:"all 0.5s ease",
+          }}>{m.icon}</div>
+          {isActive && <div style={{ position:"absolute",inset:4,borderRadius:"50%",border:"2px solid transparent",borderTopColor:color,animation:"spinSlow 3s linear infinite" }}/>}
+        </div>
+      );
+    }
+
+    // ── Timer ──
+    function ElapsedTimer({ startTime, endTime }) {
+      const [el, setEl] = useState(0);
+      useEffect(() => {
+        if (!startTime) return;
+        if (endTime) { setEl(Math.round((new Date(endTime)-new Date(startTime))/1000)); return; }
+        const iv = setInterval(() => setEl(Math.round((Date.now()-new Date(startTime).getTime())/1000)), 1000);
+        return () => clearInterval(iv);
+      }, [startTime, endTime]);
+      if (!startTime) return null;
+      const mm = Math.floor(el/60), ss = el%60;
+      return <span style={{ fontFamily:"'Space Mono',monospace",fontSize:28,fontWeight:700,letterSpacing:"0.05em" }}>{String(mm).padStart(2,"0")}:{String(ss).padStart(2,"0")}</span>;
+    }
+
+    // ═══════════════════ APP ═══════════════════
+    function App() {
+      const [page, setPage] = useState("playground");
+      const [loggedIn, setLoggedIn] = useState(false);
+      const [form, setForm] = useState({ firstName:"", lastName:"", countryCode:"+91", mobile:"" });
+      const [user, setUser] = useState(null);
+      const [mounted, setMounted] = useState(false);
+      const [activeCall, setActiveCall] = useState(null);
+      const [callData, setCallData] = useState(null);
+      const [triggerError, setTriggerError] = useState(null);
+      const [triggering, setTriggering] = useState(null);
+      const pollRef = useRef(null);
+
+      useEffect(() => { setMounted(true); }, []);
+
+      // Polling — calls same-origin proxy
+      const pollCall = useCallback(async (callId) => {
+        try {
+          const res = await fetch(`/api/calls/${callId}`);
+          if (res.ok) {
+            const data = await res.json();
+            setCallData(data);
+            const st = (data.status||"").toUpperCase().replace(/ /g,"_");
+            if (TERMINAL.includes(st)) { clearInterval(pollRef.current); pollRef.current=null; }
+          }
+        } catch(e) { console.error("Poll error:",e); }
+      }, []);
+
+      const startPolling = useCallback((callId) => {
+        if (pollRef.current) clearInterval(pollRef.current);
+        pollCall(callId);
+        pollRef.current = setInterval(() => pollCall(callId), POLL_INTERVAL);
+      }, [pollCall]);
+
+      useEffect(() => () => { if(pollRef.current) clearInterval(pollRef.current); }, []);
+
+      // Trigger — calls same-origin proxy
+      const triggerCall = async (agent) => {
+        if (!user) return;
+        setTriggering(agent.id);
+        setTriggerError(null);
+        const payload = { agent_id: agent.id, callee_name: user.firstName, mobile_number: fmtMobile(user.countryCode, user.mobile) };
+        try {
+          const res = await fetch("/api/calls", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setActiveCall({ callId: data.id, agent, status: data.status });
+            setCallData(data); setPage("monitor"); startPolling(data.id);
+          } else {
+            setTriggerError(data.message || data.detail || JSON.stringify(data));
+          }
+        } catch(err) {
+          setTriggerError(err.message || "Network error");
+        } finally { setTriggering(null); }
+      };
+
+      const goBack = () => { if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;} setActiveCall(null);setCallData(null);setTriggerError(null);setPage("playground"); };
+      const handleLogin = () => { if(!form.firstName||!form.lastName||!form.mobile) return; setUser({...form}); setLoggedIn(true); };
+      const handleLogout = () => { if(pollRef.current){clearInterval(pollRef.current);pollRef.current=null;} setLoggedIn(false);setUser(null);setActiveCall(null);setCallData(null);setForm({firstName:"",lastName:"",countryCode:"+91",mobile:""});setPage("playground"); };
+
+      const rawSt = callData ? (callData.status||"NOT_STARTED").toUpperCase().replace(/ /g,"_") : "NOT_STARTED";
+      const curSt = STATUS_META[rawSt] ? rawSt : "NOT_STARTED";
+      const meta = STATUS_META[curSt];
+      const isTerm = TERMINAL.includes(curSt);
+      const agC = activeCall?.agent?.color || "#276EF1";
+
+      // ── Shared styles ──
+      const inputStyle = { width:"100%",padding:"14px 16px",background:"#111",border:"1px solid #222",borderRadius:10,color:"#fff",fontSize:15,fontFamily:"'DM Sans',sans-serif",outline:"none",transition:"border 0.2s" };
+      const labelStyle = { fontSize:12,fontWeight:600,color:"#555",letterSpacing:"0.04em",textTransform:"uppercase",display:"block",marginBottom:8 };
+
+      return (
+        <div style={{ display:"flex",height:"100vh",width:"100vw",overflow:"hidden" }}>
+
+          {/* ═══ SIDEBAR ═══ */}
+          <div style={{ width:260,minWidth:260,background:"#0a0a0a",borderRight:"1px solid #1a1a1a",display:"flex",flexDirection:"column" }}>
+            <div style={{ padding:"28px 24px 20px",borderBottom:"1px solid #1a1a1a" }}>
+              <div style={{ display:"flex",alignItems:"center",gap:10,marginBottom:4 }}>
+                <div style={{ width:32,height:32,borderRadius:8,background:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:16,color:"#000",fontFamily:"'Space Mono',monospace" }}>U</div>
+                <span style={{ fontSize:18,fontWeight:700,letterSpacing:"-0.02em" }}>Uber</span>
+                <span style={{ fontSize:10,fontWeight:600,color:"#666",border:"1px solid #333",borderRadius:4,padding:"2px 6px",letterSpacing:"0.05em",textTransform:"uppercase" }}>Voice AI</span>
+              </div>
+              <p style={{ fontSize:11,color:"#555",marginTop:8 }}>Powered by Hunar.ai</p>
+            </div>
+            <nav style={{ padding:"16px 12px",flex:1 }}>
+              {[{key:"playground",label:"Playground",icon:"playground"},{key:"about",label:"About Hunar.ai",icon:"about"}].map(item => (
+                <button key={item.key} onClick={() => item.key==="playground" ? goBack() : setPage(item.key)}
+                  style={{ display:"flex",alignItems:"center",gap:10,width:"100%",padding:"12px 14px",marginBottom:4,background:(page===item.key||(page==="monitor"&&item.key==="playground"))?"#1a1a1a":"transparent",border:"none",borderRadius:10,cursor:"pointer",color:(page===item.key||(page==="monitor"&&item.key==="playground"))?"#fff":"#777",fontSize:14,fontWeight:(page===item.key||(page==="monitor"&&item.key==="playground"))?600:400,fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s" }}>
+                  <NavIcon type={item.icon}/>{item.label}
+                </button>
+              ))}
+            </nav>
+            {loggedIn && user && (
+              <div style={{ padding:"16px 16px 20px",borderTop:"1px solid #1a1a1a",animation:"slideIn 0.3s ease both" }}>
+                <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+                  <div style={{ width:36,height:36,borderRadius:"50%",background:"#1a1a1a",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,border:"2px solid #333" }}>{user.firstName[0]}{user.lastName[0]}</div>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{user.firstName} {user.lastName}</div>
+                    <div style={{ fontSize:11,color:"#555" }}>{user.countryCode} {user.mobile}</div>
+                  </div>
+                  <button onClick={handleLogout} style={{ background:"none",border:"none",color:"#555",cursor:"pointer",padding:6,borderRadius:6,display:"flex" }} title="Log out"><LogOutIcon/></button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ═══ MAIN ═══ */}
+          <div style={{ flex:1,overflow:"auto",background:"#000" }}>
+
+            {/* ── LOGIN ── */}
+            {page==="playground" && !loggedIn && (
+              <div style={{ display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100%",padding:40 }}>
+                <div className={mounted?"fade-up":""} style={{ width:"100%",maxWidth:440 }}>
+                  <div style={{ marginBottom:40 }}>
+                    <h1 style={{ fontSize:32,fontWeight:700,letterSpacing:"-0.03em",marginBottom:8 }}>Welcome</h1>
+                    <p style={{ fontSize:15,color:"#777" }}>Sign in to access the Voice AI Playground</p>
+                  </div>
+                  <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+                    <div><label style={labelStyle}>First Name</label><input value={form.firstName} onChange={e=>setForm({...form,firstName:e.target.value})} placeholder="Enter first name" style={inputStyle}/></div>
+                    <div><label style={labelStyle}>Last Name</label><input value={form.lastName} onChange={e=>setForm({...form,lastName:e.target.value})} placeholder="Enter last name" style={inputStyle}/></div>
+                    <div>
+                      <label style={labelStyle}>Mobile Number</label>
+                      <div style={{ display:"flex",gap:8 }}>
+                        <select value={form.countryCode} onChange={e=>setForm({...form,countryCode:e.target.value})} style={{ width:90,padding:"14px 8px 14px 12px",background:"#111",border:"1px solid #222",borderRadius:10,color:"#fff",fontSize:14,fontFamily:"'DM Sans',sans-serif",outline:"none",cursor:"pointer",appearance:"none",WebkitAppearance:"none",backgroundImage:`url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,backgroundRepeat:"no-repeat",backgroundPosition:"right 10px center" }}>
+                          {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.code} {c.country}</option>)}
+                        </select>
+                        <input value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value.replace(/[^0-9]/g,"")})} placeholder="Enter mobile number" type="tel" style={{...inputStyle,flex:1,width:"auto"}}/>
+                      </div>
+                    </div>
+                    <button onClick={handleLogin} disabled={!form.firstName||!form.lastName||!form.mobile} style={{ marginTop:8,width:"100%",padding:"16px",background:(!form.firstName||!form.lastName||!form.mobile)?"#222":"#fff",color:(!form.firstName||!form.lastName||!form.mobile)?"#555":"#000",border:"none",borderRadius:10,fontSize:15,fontWeight:700,fontFamily:"'DM Sans',sans-serif",cursor:(!form.firstName||!form.lastName||!form.mobile)?"not-allowed":"pointer",transition:"all 0.25s" }}>Continue →</button>
+                  </div>
+                  <p style={{ fontSize:12,color:"#444",marginTop:24,textAlign:"center" }}>By continuing, you agree to receive a voice AI demo call on your mobile number.</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── AGENT TILES ── */}
+            {page==="playground" && loggedIn && (
+              <div style={{ padding:"40px 48px",maxWidth:960,margin:"0 auto" }}>
+                <div className="fade-up" style={{ marginBottom:40 }}>
+                  <p style={{ fontSize:13,fontWeight:600,color:"#555",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8 }}>Voice AI Playground</p>
+                  <h1 style={{ fontSize:28,fontWeight:700,letterSpacing:"-0.03em",marginBottom:6 }}>Driver Retention Agents</h1>
+                  <p style={{ fontSize:15,color:"#666" }}>Select a language agent to trigger a demo call to <strong style={{color:"#aaa"}}>{user.firstName}</strong> at <strong style={{color:"#aaa"}}>{dispNum(user)}</strong></p>
+                </div>
+                {triggerError && (
+                  <div className="fade-in" style={{ padding:"14px 18px",background:"#ff3b3010",border:"1px solid #ff3b3033",borderRadius:12,marginBottom:20,display:"flex",alignItems:"center",gap:10 }}>
+                    <span style={{ color:"#ff3b30",fontSize:16 }}>⚠️</span>
+                    <span style={{ fontSize:13,color:"#ff3b30",wordBreak:"break-word" }}>{triggerError}</span>
+                  </div>
+                )}
+                <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:16 }}>
+                  {AGENTS.map((ag,i) => {
+                    const isPlc = ag.id.startsWith("AGENT_ID_");
+                    const isTrg = triggering===ag.id;
+                    return (
+                      <div key={ag.id} className={`fade-up d${i+1}`} style={{ background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:28,position:"relative",overflow:"hidden",opacity:isPlc?0.45:1,transition:"all 0.3s" }}>
+                        <div style={{ position:"absolute",top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${ag.color}66,transparent)` }}/>
+                        <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:6 }}>
+                          <span style={{ fontSize:22 }}>{ag.flag}</span>
+                          <span style={{ fontSize:12,fontWeight:700,color:ag.color,background:ag.color+"15",padding:"3px 10px",borderRadius:20 }}>{ag.langNative}</span>
+                        </div>
+                        <h3 style={{ fontSize:17,fontWeight:700,letterSpacing:"-0.02em",marginBottom:2 }}>Driver Retention Agent</h3>
+                        <p style={{ fontSize:12,color:"#555",marginBottom:14 }}>{ag.lang}</p>
+                        <p style={{ fontSize:13,color:"#555",lineHeight:1.5,marginBottom:20,minHeight:36 }}>{ag.desc}</p>
+                        {isPlc ? (
+                          <div style={{ padding:"12px 16px",background:"#111",borderRadius:10,border:"1px solid #1a1a1a",textAlign:"center" }}><span style={{ fontSize:13,color:"#444" }}>Coming soon</span></div>
+                        ) : (
+                          <button onClick={()=>triggerCall(ag)} disabled={triggering!==null} style={{ width:"100%",padding:"12px 16px",background:triggering?"#111":"#fff",color:triggering?"#444":"#000",border:"none",borderRadius:10,fontSize:14,fontWeight:700,fontFamily:"'DM Sans',sans-serif",cursor:triggering?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,transition:"all 0.2s" }}>
+                            {isTrg ? <><div style={{ width:16,height:16,border:"2px solid #444",borderTopColor:ag.color,borderRadius:"50%",animation:"spin 0.8s linear infinite" }}/>Triggering…</> : <><PhoneIcon/> Trigger Call</>}
+                          </button>
+                        )}
+                        <div style={{ marginTop:12,fontSize:11,color:"#333",fontFamily:"'Space Mono',monospace",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>ID: {ag.id}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── CALL MONITOR ── */}
+            {page==="monitor" && activeCall && (
+              <div style={{ padding:"40px 48px",maxWidth:720,margin:"0 auto" }}>
+                <div className="fade-up" style={{ marginBottom:36 }}>
+                  <button onClick={goBack} style={{ background:"none",border:"none",color:"#555",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:500,fontFamily:"'DM Sans',sans-serif",marginBottom:20,padding:0 }}><BackIcon/> Back to Playground</button>
+                  <p style={{ fontSize:13,fontWeight:600,color:"#555",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8 }}>Call Monitor</p>
+                  <h1 style={{ fontSize:28,fontWeight:700,letterSpacing:"-0.03em" }}>{activeCall.agent.flag} Driver Retention Agent · {activeCall.agent.lang}</h1>
+                </div>
+
+                {/* Status widget */}
+                <div className="fade-up d1" style={{ background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:20,padding:"40px 32px",textAlign:"center",marginBottom:20,position:"relative",overflow:"hidden" }}>
+                  <div style={{ position:"absolute",inset:0,opacity:0.06,background:`radial-gradient(ellipse at 50% 0%,${agC},transparent 70%)` }}/>
+                  <PulseRing color={agC} size={130} status={curSt}/>
+                  <div style={{ marginTop:24 }}>
+                    <span style={{ fontSize:13,fontWeight:700,color:meta.color,background:meta.color+"18",padding:"5px 14px",borderRadius:20,letterSpacing:"0.04em",textTransform:"uppercase" }}>{meta.label}</span>
+                  </div>
+                  <div style={{ marginTop:20 }}>
+                    <ElapsedTimer startTime={callData?.started_at} endTime={isTerm?callData?.ended_at:null}/>
+                    {!callData?.started_at && <span style={{ fontSize:14,color:"#444" }}>Waiting for connection…</span>}
+                  </div>
+                  <div style={{ display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:28 }}>
+                    {PIPELINE.map((step) => {
+                      const sn=STATUS_META[step].step, cn=meta.step, ic=step===curSt, ip=sn<cn;
+                      return <div key={step} style={{ width:ic?32:8,height:8,borderRadius:4,background:ip||ic?agC:"#222",transition:"all 0.4s",opacity:ip?0.5:1 }}/>;
+                    })}
+                  </div>
+                  <div style={{ display:"flex",justifyContent:"center",gap:32,marginTop:28,fontSize:12,color:"#555" }}>
+                    <div><span style={{color:"#333"}}>Callee</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.callee_name||user?.firstName}</span></div>
+                    <div><span style={{color:"#333"}}>Number</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.mobile_number||dispNum(user)}</span></div>
+                    <div><span style={{color:"#333"}}>Call ID</span><br/><span style={{color:"#999",fontWeight:600,fontFamily:"'Space Mono',monospace",fontSize:11}}>{activeCall.callId?.slice(0,12)}…</span></div>
+                  </div>
+                  {!isTerm && <p style={{ marginTop:24,fontSize:12,color:"#333",animation:"pulse 2s infinite" }}>Polling for updates every {POLL_INTERVAL/1000}s…</p>}
+                </div>
+
+                {/* Call details */}
+                {isTerm && callData && (
+                  <div className="slide-up d2" style={{ background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:"28px",marginBottom:20 }}>
+                    <h3 style={{ fontSize:15,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8 }}><span style={{fontSize:16}}>📊</span> Call Details</h3>
+                    <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:"#1a1a1a",borderRadius:12,overflow:"hidden" }}>
+                      {[
+                        ["Status",meta.label,meta.color],["Duration",fmtDur(callData.duration_seconds)],
+                        ["Engagement",callData.engagement_status||"—"],["Answered By",callData.answered_by||"—"],
+                        ["Call Ended By",callData.call_ended_by||"—"],["Language",callData.language||activeCall.agent.lang],
+                        ["Started At",callData.started_at?new Date(callData.started_at).toLocaleTimeString():"—"],
+                        ["Ended At",callData.ended_at?new Date(callData.ended_at).toLocaleTimeString():"—"],
+                      ].map(([l,v,vc],idx) => (
+                        <div key={idx} style={{ padding:"14px 16px",background:"#0a0a0a" }}>
+                          <div style={{ fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:4 }}>{l}</div>
+                          <div style={{ fontSize:14,fontWeight:600,color:vc||"#ccc" }}>{v}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {callData.recording_url && (
+                      <div style={{ marginTop:16,padding:"12px 16px",background:"#111",borderRadius:10,border:"1px solid #1a1a1a" }}>
+                        <div style={{ fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:"0.04em",marginBottom:8 }}>Recording</div>
+                        <audio controls src={callData.recording_url} style={{ width:"100%",height:36 }}/>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Call results */}
+                {isTerm && callData?.result && Object.keys(callData.result).length>0 && (
+                  <div className="slide-up d3" style={{ background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:"28px",marginBottom:20 }}>
+                    <h3 style={{ fontSize:15,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8 }}><span style={{fontSize:16}}>🎯</span> Call Results</h3>
+                    <div style={{ borderRadius:12,overflow:"hidden",border:"1px solid #1a1a1a" }}>
+                      {Object.entries(callData.result).map(([k,v],idx,arr) => (
+                        <div key={k} style={{ display:"flex",padding:"14px 16px",borderBottom:idx<arr.length-1?"1px solid #1a1a1a":"none",background:idx%2===0?"#0f0f0f":"#0a0a0a" }}>
+                          <div style={{ flex:"0 0 40%",fontSize:13,fontWeight:600,color:"#888",textTransform:"capitalize" }}>{k.replace(/_/g," ")}</div>
+                          <div style={{ flex:1,fontSize:13,color:"#ddd",lineHeight:1.5 }}>{typeof v==="object"?JSON.stringify(v,null,2):String(v)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {isTerm && (
+                  <div className="slide-up d4" style={{ textAlign:"center",marginTop:8 }}>
+                    <button onClick={goBack} style={{ padding:"14px 32px",background:"#fff",color:"#000",border:"none",borderRadius:10,fontSize:14,fontWeight:700,fontFamily:"'DM Sans',sans-serif",cursor:"pointer" }}>← Try Another Agent</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── ABOUT ── */}
+            {page==="about" && (
+              <div style={{ padding:"48px 56px",maxWidth:720,margin:"0 auto" }}>
+                <div className="fade-up">
+                  <p style={{ fontSize:13,fontWeight:600,color:"#555",letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:12 }}>Technology Partner</p>
+                  <h1 style={{ fontSize:36,fontWeight:700,letterSpacing:"-0.03em",marginBottom:8,lineHeight:1.1 }}>About Hunar.ai</h1>
+                  <div style={{ width:48,height:3,background:"#fff",borderRadius:2,marginBottom:32 }}/>
+                </div>
+                <div className="fade-up d1" style={{ background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:"36px 32px" }}>
+                  <div style={{ fontSize:15,color:"#999",lineHeight:1.8 }}>
+                    <p style={{ color:"#ccc",fontSize:17,fontWeight:500,marginBottom:20 }}>Hunar.ai builds enterprise-grade voice AI agents that conduct natural, human-like conversations at scale.</p>
+                    <p style={{ marginBottom:16 }}>Our multilingual voice AI platform enables enterprises to automate high-volume outbound and inbound calls with context-aware, emotionally intelligent agents. Built for industries like mobility, logistics, fintech, and healthcare.</p>
+                    <p style={{ marginBottom:16 }}>Hunar's proprietary speech models are fine-tuned for Indian languages and code-mixed conversations (Hinglish, Tanglish, etc.), achieving near-human comprehension and natural turn-taking.</p>
+                    <p style={{ marginBottom:16 }}>The platform integrates seamlessly with existing CRM, telephony, and data systems — enabling deployment in days, not months.</p>
+                    <div style={{ marginTop:28,padding:"20px 24px",background:"#111",borderRadius:12,border:"1px solid #1a1a1a" }}>
+                      <p style={{ fontSize:13,fontWeight:600,color:"#555",letterSpacing:"0.04em",textTransform:"uppercase",marginBottom:12 }}>Key Capabilities</p>
+                      {["Multilingual voice agents — Hindi, Tamil, Telugu, Spanish & more","Sub-second latency with real-time speech understanding","Enterprise telephony integration (SIP, PSTN, WebRTC)","Custom voice cloning & persona design","Real-time analytics & conversation intelligence"].map((c,i) => (
+                        <div key={i} style={{ display:"flex",alignItems:"flex-start",gap:10,padding:"8px 0",borderBottom:i<4?"1px solid #1a1a1a":"none" }}>
+                          <span style={{ color:"#06C167",fontSize:14,marginTop:1 }}>✦</span>
+                          <span style={{ fontSize:14,color:"#888" }}>{c}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ marginTop:28,fontSize:14,color:"#555",fontStyle:"italic",borderLeft:"2px solid #333",paddingLeft:16 }}>Replace this section with your detailed Hunar.ai write-up.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
