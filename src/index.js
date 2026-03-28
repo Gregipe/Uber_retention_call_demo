@@ -1,11 +1,11 @@
 // src/index.js — Cloudflare Worker with Assets binding
 // Handles /api/* routes server-side, falls through to static assets for everything else
 
-const HUNAR_API_KEY = "hunar_va_live_sk_nLOtbcN-jdKk4OPa7_prT7NAa0UWJ7TrSEHDWrDsy9-QNUDwlQ8hFQ";
 const HUNAR_BASE = "https://api.voice.hunar.ai/external/v1";
 
 export default {
   async fetch(request, env) {
+    const HUNAR_API_KEY = env.HUNAR_API_KEY;
     const url = new URL(request.url);
 
     // ── OPTIONS preflight for /api/* ──

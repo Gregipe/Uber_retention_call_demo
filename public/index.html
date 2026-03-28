@@ -37,7 +37,7 @@ const{useState,useEffect,useRef,useCallback}=React;
 const POLL_INTERVAL=4000;
 const AGENTS=[
   {id:"0b7fed15-b1a3-4ec7-80e8-e1e3a528d577",lang:"Hindi",langNative:"हिन्दी",flag:"🇮🇳",color:"#276EF1",desc:"Engage drivers in fluent Hindi with culturally aware retention conversations."},
-  {id:"AGENT_ID_SPANISH",lang:"Spanish",langNative:"Español",flag:"🇪🇸",color:"#F6AE2D",desc:"Connect with Spanish-speaking drivers through natural, empathetic dialogue."},
+  {id:"5bfc0fac-209e-4886-8a16-00c5519d83c2",lang:"Spanish",langNative:"Español",flag:"🇪🇸",color:"#F6AE2D",desc:"Connect with Spanish-speaking drivers through natural, empathetic dialogue."},
   {id:"AGENT_ID_TAMIL",lang:"Tamil",langNative:"தமிழ்",flag:"🇮🇳",color:"#06C167",desc:"Reach Tamil-speaking drivers with region-specific retention strategies."},
   {id:"AGENT_ID_TELUGU",lang:"Telugu",langNative:"తెలుగు",flag:"🇮🇳",color:"#C117E0",desc:"Retain Telugu-speaking drivers with personalized voice outreach."},
 ];
@@ -284,82 +284,110 @@ function App(){
 
         {/* CALL MONITOR */}
         {page==="monitor"&&activeCall&&(
-          <div style={{padding:"40px 48px",maxWidth:720,margin:"0 auto"}}>
-            <div className="fade-up" style={{marginBottom:36}}>
+          <div style={{padding:"40px 48px"}}>
+            <div className="fade-up" style={{marginBottom:28}}>
               <button onClick={goBack} style={{background:"none",border:"none",color:"#555",cursor:"pointer",display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:500,fontFamily:"'DM Sans',sans-serif",marginBottom:20,padding:0}}><BackIcon/> Back to Playground</button>
               <p style={{fontSize:13,fontWeight:600,color:"#555",letterSpacing:".06em",textTransform:"uppercase",marginBottom:8}}>Call Monitor</p>
               <h1 style={{fontSize:28,fontWeight:700,letterSpacing:"-.03em"}}>{activeCall.agent.flag} Driver Retention Agent · {activeCall.agent.lang}</h1>
             </div>
 
-            <div className="fade-up d1" style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:20,padding:"40px 32px",textAlign:"center",marginBottom:20,position:"relative",overflow:"hidden"}}>
-              <div style={{position:"absolute",inset:0,opacity:.06,background:`radial-gradient(ellipse at 50% 0%,${agC},transparent 70%)`}}/>
-              <PulseRing color={agC} size={130} status={curSt}/>
-              <div style={{marginTop:24}}>
-                <span style={{fontSize:13,fontWeight:700,color:meta.color,background:meta.color+"18",padding:"5px 14px",borderRadius:20,letterSpacing:".04em",textTransform:"uppercase"}}>{meta.label}</span>
-              </div>
-              <div style={{marginTop:20}}>
-                <ElapsedTimer startTime={callData?.started_at} endTime={isTerm?callData?.ended_at:null}/>
-                {!callData?.started_at&&<span style={{fontSize:14,color:"#444"}}>Waiting for connection…</span>}
-              </div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:28}}>
-                {PIPELINE.map(step=>{
-                  const sn=STATUS_META[step].step,cn=meta.step,ic=step===curSt,ip=sn<cn;
-                  return<div key={step} style={{width:ic?32:8,height:8,borderRadius:4,background:ip||ic?agC:"#222",transition:"all .4s",opacity:ip?.5:1}}/>;
-                })}
-              </div>
-              <div style={{display:"flex",justifyContent:"center",gap:32,marginTop:28,fontSize:12,color:"#555"}}>
-                <div><span style={{color:"#333"}}>Callee</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.callee_name||user?.firstName}</span></div>
-                <div><span style={{color:"#333"}}>Number</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.mobile_number||dispNum(user)}</span></div>
-                <div><span style={{color:"#333"}}>Call ID</span><br/><span style={{color:"#999",fontWeight:600,fontFamily:"'Space Mono',monospace",fontSize:11}}>{activeCall.callId?.slice(0,12)}…</span></div>
-              </div>
-              {!isTerm&&<p style={{marginTop:24,fontSize:12,color:"#333",animation:"pulse 2s infinite"}}>Polling for updates every {POLL_INTERVAL/1000}s…</p>}
-            </div>
+            <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
 
-            {isTerm&&callData&&(
-              <div className="slide-up d2" style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:28,marginBottom:20}}>
-                <h3 style={{fontSize:15,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>📊</span> Call Details</h3>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:1,background:"#1a1a1a",borderRadius:12,overflow:"hidden"}}>
-                  {[
-                    ["Status",meta.label,meta.color],["Duration",fmtDur(callData.duration_seconds)],
-                    ["Engagement",callData.engagement_status||"—"],["Answered By",callData.answered_by||"—"],
-                    ["Call Ended By",callData.call_ended_by||"—"],["Language",callData.language||activeCall.agent.lang],
-                    ["Started At",callData.started_at?new Date(callData.started_at).toLocaleTimeString():"—"],
-                    ["Ended At",callData.ended_at?new Date(callData.ended_at).toLocaleTimeString():"—"],
-                  ].map(([l,v,vc],idx)=>(
-                    <div key={idx} style={{padding:"14px 16px",background:"#0a0a0a"}}>
-                      <div style={{fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:".04em",marginBottom:4}}>{l}</div>
-                      <div style={{fontSize:14,fontWeight:600,color:vc||"#ccc"}}>{v}</div>
-                    </div>
-                  ))}
+              {/* LEFT: Call Status */}
+              <div style={{flex:1,minWidth:0}}>
+                <div className="fade-up d1" style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:20,padding:"40px 32px",textAlign:"center",position:"relative",overflow:"hidden"}}>
+                  <div style={{position:"absolute",inset:0,opacity:.06,background:`radial-gradient(ellipse at 50% 0%,${agC},transparent 70%)`}}/>
+                  <PulseRing color={agC} size={130} status={curSt}/>
+                  <div style={{marginTop:24}}>
+                    <span style={{fontSize:13,fontWeight:700,color:meta.color,background:meta.color+"18",padding:"5px 14px",borderRadius:20,letterSpacing:".04em",textTransform:"uppercase"}}>{meta.label}</span>
+                  </div>
+                  <div style={{marginTop:20}}>
+                    <ElapsedTimer startTime={callData?.started_at} endTime={isTerm?callData?.ended_at:null}/>
+                    {!callData?.started_at&&<span style={{fontSize:14,color:"#444"}}>Waiting for connection…</span>}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:4,marginTop:28}}>
+                    {PIPELINE.map(step=>{
+                      const sn=STATUS_META[step].step,cn=meta.step,ic=step===curSt,ip=sn<cn;
+                      return<div key={step} style={{width:ic?32:8,height:8,borderRadius:4,background:ip||ic?agC:"#222",transition:"all .4s",opacity:ip?.5:1}}/>;
+                    })}
+                  </div>
+                  <div style={{display:"flex",justifyContent:"center",gap:32,marginTop:28,fontSize:12,color:"#555"}}>
+                    <div><span style={{color:"#333"}}>Callee</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.callee_name||user?.firstName}</span></div>
+                    <div><span style={{color:"#333"}}>Number</span><br/><span style={{color:"#999",fontWeight:600}}>{callData?.mobile_number||dispNum(user)}</span></div>
+                    <div><span style={{color:"#333"}}>Call ID</span><br/><span style={{color:"#999",fontWeight:600,fontFamily:"'Space Mono',monospace",fontSize:11}}>{activeCall.callId?.slice(0,12)}…</span></div>
+                  </div>
+                  {!isTerm&&<p style={{marginTop:24,fontSize:12,color:"#333",animation:"pulse 2s infinite"}}>Polling for updates every {POLL_INTERVAL/1000}s…</p>}
                 </div>
-                {callData.recording_url&&(
-                  <div style={{marginTop:16,padding:"12px 16px",background:"#111",borderRadius:10,border:"1px solid #1a1a1a"}}>
-                    <div style={{fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>Recording</div>
-                    <audio controls src={callData.recording_url} style={{width:"100%",height:36}}/>
+
+                {isTerm&&(
+                  <div className="slide-up" style={{textAlign:"center",marginTop:16}}>
+                    <button onClick={goBack} style={{padding:"14px 32px",background:"#fff",color:"#000",border:"none",borderRadius:10,fontSize:14,fontWeight:700,fontFamily:"'DM Sans',sans-serif",cursor:"pointer"}}>← Try Another Agent</button>
                   </div>
                 )}
               </div>
-            )}
 
-            {isTerm&&callData?.result&&Object.keys(callData.result).length>0&&(
-              <div className="slide-up d3" style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:28,marginBottom:20}}>
-                <h3 style={{fontSize:15,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>🎯</span> Call Results</h3>
-                <div style={{borderRadius:12,overflow:"hidden",border:"1px solid #1a1a1a"}}>
-                  {Object.entries(callData.result).map(([k,v],idx,arr)=>(
-                    <div key={k} style={{display:"flex",padding:"14px 16px",borderBottom:idx<arr.length-1?"1px solid #1a1a1a":"none",background:idx%2===0?"#0f0f0f":"#0a0a0a"}}>
-                      <div style={{flex:"0 0 40%",fontSize:13,fontWeight:600,color:"#888",textTransform:"capitalize"}}>{k.replace(/_/g," ")}</div>
-                      <div style={{flex:1,fontSize:13,color:"#ddd",lineHeight:1.5}}>{typeof v==="object"?JSON.stringify(v,null,2):String(v)}</div>
+              {/* RIGHT: Insights Panel */}
+              <div style={{flex:"0 0 320px",display:"flex",flexDirection:"column",gap:16}}>
+
+                {/* Call Insights */}
+                <div className="fade-up d2" style={{background:"#0a0a0a",border:"1px solid #1a1a1a",borderRadius:16,padding:24}}>
+                  <h3 style={{fontSize:14,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><span>📊</span> Call Insights</h3>
+                  <div style={{borderRadius:10,overflow:"hidden",border:"1px solid #141414"}}>
+                    {[
+                      ["Status", isTerm?meta.label:null, isTerm?meta.color:null],
+                      ["Engagement", callData?.engagement_status||null, callData?.engagement_status==="ENGAGED"?"#06C167":callData?.engagement_status==="NOT_ENGAGED"?"#F6AE2D":null],
+                      ["Duration", callData?.duration_seconds?fmtDur(callData.duration_seconds):null],
+                      ["User Speech", callData?.user_speech_duration?fmtDur(callData.user_speech_duration):null],
+                      ["Answered By", callData?.answered_by||null],
+                      ["Call Ended By", callData?.call_ended_by||null],
+                      ["Language", callData?.language||activeCall.agent.lang],
+                      ["Started At", callData?.started_at?new Date(callData.started_at).toLocaleTimeString():null],
+                      ["Ended At", callData?.ended_at?new Date(callData.ended_at).toLocaleTimeString():null],
+                    ].map(([label,value,vc],idx,arr)=>(
+                      <div key={label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:idx%2===0?"#0f0f0f":"#0a0a0a",borderBottom:idx<arr.length-1?"1px solid #141414":"none"}}>
+                        <span style={{fontSize:11,color:"#555",fontWeight:500,textTransform:"uppercase",letterSpacing:".04em"}}>{label}</span>
+                        {value
+                          ?<span style={{fontSize:13,fontWeight:600,color:vc||"#ccc"}}>{value}</span>
+                          :<div style={{width:56,height:9,borderRadius:4,background:"#1a1a1a",animation:!isTerm?"pulse 2s infinite":"none"}}/>
+                        }
+                      </div>
+                    ))}
+                  </div>
+                  {callData?.recording_url&&(
+                    <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid #1a1a1a"}}>
+                      <div style={{fontSize:11,color:"#444",textTransform:"uppercase",letterSpacing:".04em",marginBottom:8}}>Recording</div>
+                      <audio controls src={callData.recording_url} style={{width:"100%",height:36}}/>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
-            )}
 
-            {isTerm&&(
-              <div className="slide-up d4" style={{textAlign:"center",marginTop:8}}>
-                <button onClick={goBack} style={{padding:"14px 32px",background:"#fff",color:"#000",border:"none",borderRadius:10,fontSize:14,fontWeight:700,fontFamily:"'DM Sans',sans-serif",cursor:"pointer"}}>← Try Another Agent</button>
+                {/* Output Variables */}
+                <div className="fade-up d3" style={{background:"#0a0a0a",border:`1px solid ${callData?.result&&Object.keys(callData.result).length>0?agC+"33":"#1a1a1a"}`,borderRadius:16,padding:24,transition:"border-color .4s"}}>
+                  <h3 style={{fontSize:14,fontWeight:700,marginBottom:16,display:"flex",alignItems:"center",gap:8}}><span>🎯</span> Output Variables</h3>
+                  {callData?.result&&Object.keys(callData.result).length>0?(
+                    <div style={{borderRadius:10,overflow:"hidden",border:"1px solid #141414"}}>
+                      {Object.entries(callData.result).map(([k,v],idx,arr)=>(
+                        <div key={k} style={{padding:"12px 14px",background:idx%2===0?"#0f0f0f":"#0a0a0a",borderBottom:idx<arr.length-1?"1px solid #141414":"none"}}>
+                          <div style={{fontSize:11,color:"#555",textTransform:"capitalize",letterSpacing:".03em",marginBottom:5}}>{k.replace(/_/g," ")}</div>
+                          <div style={{fontSize:13,fontWeight:600,color:agC,lineHeight:1.5}}>{typeof v==="object"?JSON.stringify(v,null,2):String(v)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ):(
+                    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                      {[80,55,70,45].map((w,i)=>(
+                        <div key={i} style={{padding:"12px 14px",background:"#0f0f0f",borderRadius:8,border:"1px solid #141414"}}>
+                          <div style={{width:w,height:7,borderRadius:3,background:"#1a1a1a",marginBottom:8}}/>
+                          <div style={{width:"100%",height:10,borderRadius:3,background:"#1a1a1a",animation:`pulse 2s ${i*.15}s infinite`}}/>
+                        </div>
+                      ))}
+                      <p style={{fontSize:12,color:"#333",textAlign:"center",marginTop:4}}>{isTerm?"No output variables returned.":"Waiting for call to complete…"}</p>
+                    </div>
+                  )}
+                </div>
+
               </div>
-            )}
+            </div>
           </div>
         )}
 
