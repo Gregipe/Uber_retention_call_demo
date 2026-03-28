@@ -129,8 +129,30 @@ function App(){
         clearInterval(pollRef.current);pollRef.current=null;
         if(!loggedRef.current){
           loggedRef.current=true;
-          fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)})
-            .catch(e=>console.error("Sheet log error:",e));
+          // Poll a few more times to wait for result fields to be populated
+          const fetchCall=async(id)=>{
+            try{const res=await fetch(`/api/calls/${id}`);if(res.ok){const t=await res.text();if(t)return JSON.parse(t);}
+            }catch(e){}return null;
+          };
+          const logWhenReady=async()=>{
+            let latest=data;
+            for(let i=0;i<8;i++){
+              if(latest.result&&Object.keys(latest.result).length>0)break;
+              await new Promise(r=>setTimeout(r,3000));
+              const d=await fetchCall(latest.id);if(d){latest=d;setCallData(d);}
+            }
+            fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(latest)})
+              .catch(e=>console.error("Sheet log error:",e));
+            // Re-fetch after 5 minutes and log again with final state
+            await new Promise(r=>setTimeout(r,5*60*1000));
+            const final=await fetchCall(latest.id);
+            if(final){
+              setCallData(final);
+              fetch("/api/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(final)})
+                .catch(e=>console.error("Sheet 5min log error:",e));
+            }
+          };
+          logWhenReady();
         }
       }
     }catch(e){console.error("Poll error:",e);}

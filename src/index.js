@@ -35,7 +35,9 @@ async function getGoogleToken(sa) {
   const sigInput = `${header}.${claim}`;
 
   const pemBody = sa.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, "");
+    .replace(/\\n/g, "\n")
+    .replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
   const keyBytes = Uint8Array.from(atob(pemBody), (c) => c.charCodeAt(0));
 
   const privateKey = await crypto.subtle.importKey(
@@ -128,10 +130,7 @@ export default {
         const sa = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
         const token = await getGoogleToken(sa);
 
-        const result = d.result && typeof d.result === "object" ? d.result : {};
-        const outputVars = Object.entries(result).length > 0
-          ? Object.entries(result).map(([k, v]) => `${k}: ${v}`).join(" | ")
-          : "";
+        const r = d.result && typeof d.result === "object" ? d.result : {};
 
         const row = [
           new Date().toISOString(),                                              // Logged At
@@ -148,7 +147,17 @@ export default {
           d.started_at || "",                                                    // Started At
           d.ended_at || "",                                                      // Ended At
           d.recording_url || "",                                                 // Recording URL
-          outputVars,                                                            // Output Variables
+          r.interest_status || "",                                               // Interest Status
+          r.reason_category || "",                                               // Reason Category
+          r.reason_detail || "",                                                 // Reason Detail
+          r.callback_required || "",                                             // Callback Required
+          r.callback_date || "",                                                 // Callback Date
+          r.callback_time || "",                                                 // Callback Time
+          r.call_date || "",                                                     // Call Date
+          r.not_interested_reason || "",                                         // Not Interested Reason
+          r.faq_questions_asked || "",                                           // FAQ Questions Asked
+          r.call_outcome_notes || "",                                            // Call Outcome Notes
+          r.account_manager_callback || "",                                      // Account Manager Callback
         ];
 
         await sheetsAppend(token, [row]);
@@ -157,6 +166,20 @@ export default {
         console.error("Sheet log error:", err.message);
         return jsonResp({ error: err.message }, 500);
       }
+    }
+
+    // ── GET /api/debug-key — Temporary key inspector ──
+    if (url.pathname === "/api/debug-key" && request.method === "GET") {
+      const sa = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
+      const raw = sa.private_key;
+      const stripped = raw.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "").replace(/\s+/g, "");
+      return jsonResp({
+        raw_length: raw.length,
+        stripped_length: stripped.length,
+        first_50_chars: stripped.slice(0, 50),
+        has_non_base64: /[^A-Za-z0-9+/=]/.test(stripped),
+        char_codes_first_10: [...stripped.slice(0, 10)].map(c => c.charCodeAt(0)),
+      });
     }
 
     // ── GET /api/sheets/init — Write header row (run once to set up the sheet) ──
@@ -168,7 +191,11 @@ export default {
           "Logged At", "Call ID", "Name", "Number", "Language",
           "Status", "Engagement", "Duration (s)", "User Speech (s)",
           "Answered By", "Call Ended By", "Started At", "Ended At",
-          "Recording URL", "Output Variables",
+          "Recording URL",
+          "Interest Status", "Reason Category", "Reason Detail",
+          "Callback Required", "Callback Date", "Callback Time",
+          "Call Date", "Not Interested Reason", "FAQ Questions Asked",
+          "Call Outcome Notes", "Account Manager Callback",
         ]]);
         return jsonResp({ ok: true, message: "Header row written to sheet" });
       } catch (err) {
