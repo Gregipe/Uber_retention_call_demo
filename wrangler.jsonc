@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bajaj-hf-agent",
+  "name": "uber-retention-agent",
   "compatibility_date": "2025-09-27",
   "main": "src/index.js",
   "observability": {
