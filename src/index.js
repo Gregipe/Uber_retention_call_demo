@@ -3,7 +3,7 @@
 
 const HUNAR_BASE = "https://api.voice.hunar.ai/external/v1";
 const SHEET_ID = "1qWhulUUTOM8x78JPl8TyhhQk59vq41f5dNBSXou6NFQ";
-const SHEET_RANGE = "Sheet1";
+const SHEET_RANGE = "Bajaj HF";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -137,6 +137,8 @@ export default {
           d.id || "",                                                            // Call ID
           d.callee_name || "",                                                   // Name
           d.mobile_number || "",                                                 // Number
+          d.city || "",                                                          // City
+          d.loan_amount_lakhs || "",                                             // Loan Amount (L)
           d.language || "",                                                      // Language
           (d.status || "").toUpperCase(),                                        // Status
           d.engagement_status || "",                                             // Engagement
@@ -147,17 +149,14 @@ export default {
           d.started_at || "",                                                    // Started At
           d.ended_at || "",                                                      // Ended At
           d.recording_url || "",                                                 // Recording URL
-          r.interest_status || "",                                               // Interest Status
-          r.reason_category || "",                                               // Reason Category
-          r.reason_detail || "",                                                 // Reason Detail
-          r.callback_required || "",                                             // Callback Required
-          r.callback_date || "",                                                 // Callback Date
+          r.concern || "",                                                       // Concern
+          r.summary || "",                                                       // Summary
+          r.callback || "",                                                      // Callback
           r.callback_time || "",                                                 // Callback Time
-          r.call_date || "",                                                     // Call Date
-          r.not_interested_reason || "",                                         // Not Interested Reason
-          r.faq_questions_asked || "",                                           // FAQ Questions Asked
-          r.call_outcome_notes || "",                                            // Call Outcome Notes
-          r.account_manager_callback || "",                                      // Account Manager Callback
+          r.existing_loan || "",                                                 // Existing Loan
+          r.interest_level || "",                                                // Interest Level
+          r.existing_loan_bank || "",                                            // Existing Loan Bank
+          r.existing_loan_characteristics || "",                                 // Existing Loan Characteristics
         ];
 
         await sheetsAppend(token, [row]);
@@ -188,14 +187,12 @@ export default {
         const sa = JSON.parse(env.GOOGLE_SERVICE_ACCOUNT_JSON);
         const token = await getGoogleToken(sa);
         await sheetsAppend(token, [[
-          "Logged At", "Call ID", "Name", "Number", "Language",
+          "Logged At", "Call ID", "Name", "Number", "City", "Loan Amount (L)", "Language",
           "Status", "Engagement", "Duration (s)", "User Speech (s)",
           "Answered By", "Call Ended By", "Started At", "Ended At",
           "Recording URL",
-          "Interest Status", "Reason Category", "Reason Detail",
-          "Callback Required", "Callback Date", "Callback Time",
-          "Call Date", "Not Interested Reason", "FAQ Questions Asked",
-          "Call Outcome Notes", "Account Manager Callback",
+          "Concern", "Summary", "Callback", "Callback Time",
+          "Existing Loan", "Interest Level", "Existing Loan Bank", "Existing Loan Characteristics",
         ]]);
         return jsonResp({ ok: true, message: "Header row written to sheet" });
       } catch (err) {
