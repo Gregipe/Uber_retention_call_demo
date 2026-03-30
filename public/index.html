@@ -6,7 +6,7 @@
   <title>Uber × Hunar.ai — Voice AI Playground</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23000'/><circle cx='50' cy='50' r='38' fill='%23fff'/><rect x='12' y='45' width='44' height='10' fill='%23000'/><rect x='46' y='34' width='24' height='24' fill='%23000'/></svg>"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
     html,body,#root{height:100%;width:100%;overflow:hidden}
@@ -275,7 +275,10 @@ function App(){
           <div style={{padding:"40px 48px",maxWidth:960,margin:"0 auto"}}>
             <div className="fade-up" style={{marginBottom:40}}>
               <p style={{fontSize:13,fontWeight:600,color:"#555",letterSpacing:".06em",textTransform:"uppercase",marginBottom:8}}>Voice AI Playground</p>
-              <h1 style={{fontSize:28,fontWeight:700,letterSpacing:"-.03em",marginBottom:6}}>Driver Retention Agents</h1>
+              <h1 style={{fontSize:28,fontWeight:700,letterSpacing:"-.03em",marginBottom:6}}>
+                Driver Retention Agents
+                <span style={{display:"inline",fontFamily:"'Playfair Display', 'Cormorant Garamond', Georgia, serif",fontWeight:400,fontStyle:"italic",fontSize:17,color:"#888",letterSpacing:".01em",marginLeft:14,background:"linear-gradient(90deg,#aaa,#666)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>that engage dormant drivers and check if all is okay! In this demo, you are the dormant driver.</span>
+              </h1>
               <p style={{fontSize:15,color:"#666"}}>Select a language agent to trigger a demo call to <strong style={{color:"#aaa"}}>{user.firstName}</strong> at <strong style={{color:"#aaa"}}>{dispNum(user)}</strong></p>
             </div>
             {triggerError&&(
