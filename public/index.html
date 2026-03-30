@@ -275,10 +275,11 @@ function App(){
           <div style={{padding:"40px 48px",maxWidth:960,margin:"0 auto"}}>
             <div className="fade-up" style={{marginBottom:40}}>
               <p style={{fontSize:13,fontWeight:600,color:"#555",letterSpacing:".06em",textTransform:"uppercase",marginBottom:8}}>Voice AI Playground</p>
-              <h1 style={{fontSize:28,fontWeight:700,letterSpacing:"-.03em",marginBottom:6}}>
-                Driver Retention Agents
-                <span style={{display:"inline",fontFamily:"'DM Sans',sans-serif",fontWeight:400,fontStyle:"normal",fontSize:15,color:"#666",marginLeft:14}}>that engage dormant drivers and check if all is okay!<br/>In this demo, you are the dormant driver.</span>
-              </h1>
+              <div style={{display:"flex",alignItems:"baseline",flexWrap:"wrap",gap:"0 12px",marginBottom:6}}>
+                <h1 style={{fontSize:28,fontWeight:700,letterSpacing:"-.03em",margin:0}}>Driver Retention Agents</h1>
+                <span style={{fontSize:15,color:"#666"}}>that engage dormant drivers and check if all is okay!</span>
+              </div>
+              <p style={{fontSize:15,color:"#666",marginBottom:6}}>In this demo, you are the dormant driver.</p>
               <p style={{fontSize:15,color:"#666"}}>Select a language agent to trigger a demo call to <strong style={{color:"#aaa"}}>{user.firstName}</strong> at <strong style={{color:"#aaa"}}>{dispNum(user)}</strong></p>
             </div>
             {triggerError&&(
